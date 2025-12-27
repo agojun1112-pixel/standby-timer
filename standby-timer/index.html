@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Standby Clock</title>
+
+<style>
+  body {
+    margin: 0;
+    height: 100vh;
+    background: url("bg.jpg") no-repeat center center / cover;
+    overflow: hidden;
+    font-family: system-ui, sans-serif;
+    color: white;
+  }
+
+  /* ===== 全体 ===== */
+  .wrapper {
+    position: absolute;
+    right: 110px;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    z-index: 1; /* 時計は後ろ */
+  }
+
+  /* ===== 時計 ===== */
+  .clock {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(rgba(40,40,40,0.7), rgba(0,0,0,0.85));
+    backdrop-filter: blur(6px);
+  }
+
+  .number {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    font-size: 22px;
+  }
+
+  .hand {
+    position: absolute;
+    bottom: 50%;
+    left: 50%;
+    transform-origin: bottom center;
+    transform: translateX(-50%);
+    border-radius: 4px;
+  }
+
+  .hour { width: 5px; height: 70px; background: white; }
+  .minute { width: 4px; height: 100px; background: white; }
+  .second { width: 2px; height: 120px; background: red; }
+
+  .center {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    background: white;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* ===== タイマー ===== */
+ .timer {
+  margin-top: 22px;
+  width: 280px;              /* 時計と同じ幅 */
+  display: flex;
+  justify-content: center;   /* 真ん中 */
+}
+
+  .timer-ring {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    border: 10px solid rgba(255,255,255,0.22);
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+  }
+
+  /* ===== ハンバーガー ===== */
+  .menu-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    font-size: 26px;
+    cursor: pointer;
+    z-index: 10; /* 最前面 */
+    opacity: 1;
+    transition: opacity 1s;
+  }
+
+  .menu-btn.hide {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .menu {
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    background: rgba(0,0,0,0.7);
+    border-radius: 12px;
+    padding: 10px;
+    display: none;
+    z-index: 10; /* 最前面 */
+    backdrop-filter: blur(8px);
+  }
+
+  .menu button, .menu input {
+    display: block;
+    width: 100%;
+    margin: 6px 0;
+    padding: 8px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    font-size: 14px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="menu-btn" id="menuBtn">☰</div>
+
+<div class="menu" id="menu">
+ <button id="btnStart" onclick="startTimer(this)">開始</button>
+<button id="btnStop" onclick="stopTimer(this)">停止</button>
+<button id="btnReset" onclick="resetTimer(this)">リセット</button>
+<button onclick="setTimer()">タイマー設定（分）</button>
+  <input type="file" accept="image/*" onchange="changeBg(event)">
+</div>
+
+<div class="wrapper">
+
+  <div class="clock" id="clock">
+    <div class="hand hour" id="hour"></div>
+    <div class="hand minute" id="minute"></div>
+    <div class="hand second" id="second"></div>
+    <div class="center"></div>
+  </div>
+
+  <div class="timer">
+    <div class="timer-ring" id="timer">00:00</div>
+  </div>
+
+</div>
+
+<script>
+/* ===== 時計数字 ===== */
+const clock = document.getElementById("clock");
+const size = 280, center = size/2, radius = 125;
+
+for (let i=1;i<=12;i++){
+  const n=document.createElement("div");
+  n.className="number";
+  n.textContent=i;
+  const a=(i/12)*Math.PI*2-Math.PI/2;
+  n.style.left=center+radius*Math.cos(a)+"px";
+  n.style.top=center+radius*Math.sin(a)+"px";
+  clock.appendChild(n);
+}
+
+/* ===== 時計針 ===== */
+function updateClock(){
+  const d=new Date();
+  hour.style.transform=`translateX(-50%) rotate(${(d.getHours()%12)*30+d.getMinutes()*0.5}deg)`;
+  minute.style.transform=`translateX(-50%) rotate(${d.getMinutes()*6}deg)`;
+  second.style.transform=`translateX(-50%) rotate(${d.getSeconds()*6}deg)`;
+}
+setInterval(updateClock,1000);updateClock();
+
+/* ===== タイマー ===== */
+let seconds = 0;
+let timerId = null;
+let countdown = false; // ← 追加
+const timerEl=document.getElementById("timer");
+
+function render(){
+  const m=String(Math.floor(Math.abs(seconds)/60)).padStart(2,"0");
+  const s=String(Math.abs(seconds)%60).padStart(2,"0");
+  timerEl.textContent=`${m}:${s}`;
+}
+
+function startTimer(){
+  if(timerId) return;
+
+  timerId = setInterval(()=>{
+    seconds += countdown ? -1 : 1;
+    render();
+    if (countdown && seconds <= 0) {
+      stopTimer();
+      seconds = 0;
+      render();
+    }
+  },1000);
+}
+
+function stopTimer(){
+  clearInterval(timerId);
+  timerId = null;
+}
+
+function resetTimer(){
+  stopTimer();
+  seconds = 0;
+  countdown = false;
+  render();
+}
+
+function setTimer(){
+  const min = prompt("設定する時間を指定してください。");
+  if(!min) return;
+  seconds = parseInt(min) * 60;
+  countdown = true;
+  render();
+}
+
+/* ===== 背景変更 ===== */
+function changeBg(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const url=URL.createObjectURL(file);
+  document.body.style.background=`url("${url}") center/cover no-repeat`;
+}
+
+/* ===== メニュー制御 ===== */
+const menu=document.getElementById("menu");
+const btn=document.getElementById("menuBtn");
+let hideTimer;
+
+btn.onclick=()=>{
+  menu.style.display = menu.style.display==="block" ? "none" : "block";
+};
+
+function autoHide(){
+  btn.classList.remove("hide");
+  clearTimeout(hideTimer);
+  hideTimer=setTimeout(()=>btn.classList.add("hide"),3000);
+}
+document.body.addEventListener("mousemove",autoHide);
+autoHide();
+render();
+</script>
+
+</body>
+</html>
